@@ -4,8 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-//using Wedge.DasKeyboardQClient;
-//using Wedge.DasKeyboardQClient.DataContracts;
 
 namespace QTracker
 {
@@ -24,11 +22,6 @@ namespace QTracker
 
         public SignalGenerator(bool cloud = false)
         {
-            /*if (cloud)  
-                Client = new CloudQClient("G1vpEhNG0sDEnnRhUAkvVSS5Q", "CNrF0eq8YtXVobshB7Oui7kbJ");// Cloud Client
-            else
-                Client = new LocalQClient();// Local Client
-            */
             client = new Client
             {
                 AuthenticationMode = AuthenticationMode.None,
@@ -45,9 +38,14 @@ namespace QTracker
                 Color = color,
             };
 
-            client.CreateSignalAsync(sig);
+            Send(sig);
         }
         
+        public async Task SendSignal(Signal sig)
+        {
+            await client.CreateSignal(sig); // This also updates the signal object.
+        }
+
         /// <summary>
         /// 
         /// </summary>
@@ -80,11 +78,11 @@ namespace QTracker
                     };
                 }
 
-                client.CreateSignalAsync(sig);
+                SendSignal(sig);
             }
         }
 
-        public async Task SendSignalHorizontalRowAsync(string name, Vector2 zoneId, string color, string effect, int length, bool horizontal = true)
+        public void SendSignalHorizontalRow(string name, Vector2 zoneId, string color, string effect, int length, bool horizontal = true)
         {
             for (int i = 0; i < length; i++)
             {
@@ -110,12 +108,11 @@ namespace QTracker
                     };
                 }
 
-                //Client.CreateSignalAsync(sig);
-                Send(sig);
+                SendSignal(sig);
             }
         }
 
-        public async Task DrawPercentBarAsync(string name, Vector2 zoneId, string color, string effect, int percentage, int maxlength=10)
+        public void DrawPercentBarAsync(string name, Vector2 zoneId, string color, string effect, int percentage, int maxlength=10)
         {
             for (int i = 0; i < maxlength; i++)
             {
@@ -145,15 +142,10 @@ namespace QTracker
                     };
                 }
 
-                //Client.CreateSignalAsync(sig);
-                Send(sig);
+                SendSignal(sig);
             }
         }
 
-        public async Task Send(Signal sig)
-        {
-            await client.CreateSignal(sig); // This also updates the signal object.
-        }
     }
 
 
