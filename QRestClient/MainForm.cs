@@ -14,24 +14,19 @@ namespace QTracker
 {
     public partial class MainForm : Form
     {
-        double maxRAM = 0;
-        PerformanceCounter cpuCounter;
-        PerformanceCounter ramCounter;
         SignalGenerator SG;
+
+        //Test VAR for TASKS
+        bool firstTime = true;
 
         public MainForm()
         {
             InitializeComponent();
             LoadSettings();
-            SG = new SignalGenerator();
+            SG = new SignalGenerator(false);
 
             this.FormClosing += FormClosingMethod;
 
-            cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
-            ramCounter = new PerformanceCounter("Memory", "Available MBytes");
-            cpuCounter.NextValue();
-            ramCounter.NextValue();
-            maxRAM = GetPhysicalMemory();
             timer1.Start();
         }
 
@@ -55,19 +50,28 @@ namespace QTracker
             string hex = c.R.ToString("X2") + c.G.ToString("X2") + c.B.ToString("X2");
         }
 
-        private double GetPhysicalMemory()
+        private void Timer1_Tick(object sender, EventArgs e)
         {
-            ObjectQuery winQuery = new ObjectQuery("SELECT * FROM Win32_OperatingSystem");
-            ManagementObjectSearcher searcher = new ManagementObjectSearcher(winQuery);
-
-            double memory = 0;
-            foreach (ManagementObject item in searcher.Get())
+            if (fTWorkloadC.Checked)
             {
-                memory = double.Parse(item["TotalVisibleMemorySize"].ToString());
+                //fPBWorkloadC.Value = (int)cpuCounter.NextValue();
+                fPBWorkloadC.Value = Convert.ToInt32(new ManagementObjectSearcher("SELECT PercentProcessorTime FROM Win32_PerfFormattedData_PerfOS_Processor WHERE Name='_Total'").Get().Cast<ManagementObject>().First().Properties["PercentProcessorTime"].Value.ToString());
             }
-            return memory;
-        }
 
+            if (ftWorkloadM.Checked)
+            {
+                int memFree = Convert.ToInt32(new ManagementObjectSearcher("root\\CIMV2", "SELECT * FROM Win32_OperatingSystem").Get().Cast<ManagementObject>().First().Properties["FreePhysicalMemory"].Value.ToString());
+                int memTotal = Convert.ToInt32(new ManagementObjectSearcher("root\\CIMV2", "SELECT * FROM Win32_OperatingSystem").Get().Cast<ManagementObject>().First().Properties["TotalVisibleMemorySize"].Value.ToString());
+                fPBWorkloadM.Value = (memTotal - memFree) * 100 / memTotal;
+            }
+            if ((fTWorkloadC.Checked || ftWorkloadM.Checked) && firstTime) {
+                ///Send signal mapped on (default) 10 keys
+                SG.DrawPercentBarAsync("CPU Performance", new Vector2(2, 1), "#FF0000", "SET_COLOR", (int)fPBWorkloadC.Value / 10);
+                //SG.SendSignal("Crash Test", new Vector2(2, 1), "#FF0000", "SET_COLOR");
+                //firstTime = false;
+            }
+            //SG.sendSignalHorizontalRowAsync("CPU Performance", new Vector2(2, 1), "#FF0000", "SET_COLOR", (int)fPBWorkloadC.Value/10);
+        }
         private void FormClosingMethod(object sender, FormClosingEventArgs e)
         {
             Properties.Settings.Default.CPU_W_On = fTWorkloadC.Checked;
@@ -79,31 +83,10 @@ namespace QTracker
             Properties.Settings.Default.Mem_W_On = ftWorkloadM.Checked;
 
             Properties.Settings.Default.Save();
-
-            cpuCounter.Dispose();
-            ramCounter.Dispose();
-        }
-
-        private void Timer1_Tick(object sender, EventArgs e)
-        {
-            if (fTWorkloadC.Checked)
-                fPBWorkloadC.Value = (int)cpuCounter.NextValue();
-
-            if (ftWorkloadM.Checked)
-            {
-                var usedRam = (maxRAM - (ramCounter.NextValue() * 1000)) * 100 / maxRAM;
-                fPBWorkloadM.Value = Convert.ToInt32(usedRam - 2); //Some broken calc.. most likely maxRAM
-            }
-            if (fTWorkloadC.Checked || ftWorkloadM.Checked)
-                SG.DrawPercentBarAsync("CPU Performance", new Vector2(2, 1), "#FF0000", "SET_COLOR", (int)fPBWorkloadC.Value / 10);
-                //SG.sendSignalHorizontalRowAsync("CPU Performance", new Vector2(2, 1), "#FF0000", "SET_COLOR", (int)fPBWorkloadC.Value/10);
         }
 
         private void FClose_Click(object sender, EventArgs e)
         {
-
-            cpuCounter.Dispose();
-            ramCounter.Dispose();
             this.Close();
         }
     }

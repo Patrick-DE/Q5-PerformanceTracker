@@ -2,6 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -9,7 +11,11 @@ namespace QTracker
 {
     public class SignalGenerator
     {
+        [DllImport("user32.dll")]
+        static extern short GetAsyncKeyState(System.Windows.Forms.Keys vKey);
+
         dynamic client;
+        Logger log = new Logger(0);
 
         Signal ErrorSig = new Signal()
         {
@@ -22,11 +28,25 @@ namespace QTracker
 
         public SignalGenerator(bool cloud = false)
         {
-            client = new Client
+            if (cloud)
             {
-                AuthenticationMode = AuthenticationMode.None,
-                ApiEndPoint = Client.LocalEndPoint,
-            };
+                client = new Client
+                {
+                    AuthenticationMode = AuthenticationMode.ClientCredentials,
+                    Credentials = new NetworkCredential(
+                    "pkCIaqfX5mbT6QxLFPqZVbKsg",  // client_id
+                    "GPC4ITTy80ISOT3hB2ZG98bhN"), // client_secret
+                };
+                log.Log("Cloud connection established!");
+            }
+            else { 
+                client = new Client
+                {
+                    AuthenticationMode = AuthenticationMode.None,
+                    ApiEndPoint = Client.LocalEndPoint,
+                };
+                log.Log("Local connection established!");
+            }
         }
         public void SendSignal(String name, Vector2  zoneId, String color, String effect)
         {
@@ -37,13 +57,8 @@ namespace QTracker
                 ZoneId = zoneId.ToString(),
                 Color = color,
             };
-
-            Send(sig);
-        }
-        
-        public async Task SendSignal(Signal sig)
-        {
-            await client.CreateSignal(sig); // This also updates the signal object.
+            //if(GetAsyncKeyState(System.Windows.Forms.Keys.Space) != 0)
+                client.CreateSignal(sig);
         }
 
         /// <summary>
@@ -78,7 +93,7 @@ namespace QTracker
                     };
                 }
 
-                SendSignal(sig);
+                client.CreateSignal(sig);
             }
         }
 
@@ -104,16 +119,18 @@ namespace QTracker
                         Pid = "DK5QPID",
                         ZoneId = zoneId.x + "," + zoneId.y,
                         Color = color,
-                        Effect = effect
+                        Effect = effect,
                     };
                 }
 
-                SendSignal(sig);
+                client.CreateSignal(sig);
             }
         }
 
         public void DrawPercentBarAsync(string name, Vector2 zoneId, string color, string effect, int percentage, int maxlength=10)
         {
+            Console.Clear();
+
             for (int i = 0; i < maxlength; i++)
             {
                 String finalColor;
@@ -123,10 +140,12 @@ namespace QTracker
                 else
                     finalColor = "#00FF00";
 
-                zoneId.x += i;
+                int newZoneX = zoneId.x + i;
+
+                log.Log("Position" + zoneId.x + "," + newZoneX);
 
                 Signal sig;
-                if (zoneId.x > 23 || zoneId.x < 0)
+                if (newZoneX > 23 || newZoneX < 0)
                     sig = ErrorSig;
                 else if (zoneId.y > 5 || zoneId.y < 0)
                     sig = ErrorSig;
@@ -134,15 +153,20 @@ namespace QTracker
                 {
                     sig = new Signal()
                     {
-                        Name = name + "#" + i + "/" + maxlength,
+                        Name = name + "-" + i + "/" + maxlength,
                         Pid = "DK5QPID",
-                        ZoneId = zoneId.x + "," + zoneId.y,
-                        Color = color,
-                        Effect = effect
+                        ZoneId = newZoneX + "," + zoneId.y,
+                        Color = finalColor,
+                        Effect = effect,
+                        Message = "Position: " + zoneId.x + "," + newZoneX + " Color: " + finalColor + " Percentage: " + percentage,
+                        ShouldNotify = false,
+                        IsMuted = true,
+                        IsRead = true,
+                        IsArchived = true
                     };
                 }
-
-                SendSignal(sig);
+                log.Log("Position: " + zoneId.x + "," + newZoneX + " Color: " + finalColor + " Percentage: " + percentage);
+                client.CreateSignal(sig);
             }
         }
 
